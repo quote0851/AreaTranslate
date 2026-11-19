@@ -1,0 +1,33 @@
+{
+  "name": "area-translate",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "区域截图翻译 Chrome 扩展：框选网页任意区域，本地 OCR 识别并翻译为中文。",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "vue-tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "tesseract.js": "^5.1.1",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.7.1",
+    "@playwright/test": "^1.65.1",
+    "@types/chrome": "^0.0.287",
+    "@types/node": "^22.9.0",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "eslint": "^9.39.5",
+    "eslint-plugin-vue": "^9.33.0",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.73.0",
+    "vite": "^5.4.11",
+    "vitest": "^2.1.5",
+    "vue-tsc": "^2.1.10"
+  }
+}

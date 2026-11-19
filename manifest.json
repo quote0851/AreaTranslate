@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "AreaTranslate",
+  "version": "0.1.0",
+  "description": "区域截图翻译：框选网页任意区域，本地 OCR 识别并翻译为中文。",
+  "action": {
+    "default_title": "AreaTranslate",
+    "default_popup": "src/popup/index.html"
+  },
+  "options_page": "src/options/index.html",
+  "background": {
+    "service_worker": "src/background/index.ts",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content/index.ts"],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting",
+    "offscreen"
+  ],
+  "host_permissions": [
+    "https://api.mymemory.translated.net/*",
+    "https://loongwayx-xiaomi-ocr-0-demo.hf.space/*"
+  ],
+  "commands": {
+    "start-selection": {
+      "suggested_key": {
+        "default": "Alt+Shift+T"
+      },
+      "description": "启动区域截图翻译"
+    }
+  }
+}
