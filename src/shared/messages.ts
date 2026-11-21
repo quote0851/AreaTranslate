@@ -13,6 +13,7 @@ export type RuntimeMessage =
       rect: ViewportRect
       viewport: ViewportSize
       ocrProvider: OcrProviderId
+      localOcrUrl: string
     }
   | { type: 'TRANSLATE'; text: string }
 

@@ -102,8 +102,8 @@ function parseFrames(body: string): XiaomiFrame[] {
   return frames
 }
 
-// 把模型输出的 markdown 精简为适合展示与翻译的纯文本
-function toPlainText(markdown: string): string {
+// 把模型输出的 markdown 精简为适合展示与翻译的纯文本（在线与本地识别共用）
+export function toPlainText(markdown: string): string {
   return markdown
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/t[dh]>\s*/gi, ' | ')

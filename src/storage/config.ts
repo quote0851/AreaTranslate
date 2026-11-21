@@ -1,7 +1,7 @@
 // 扩展配置与 chrome.storage.local 读写封装
 
-export type TranslationProviderId = 'mymemory' | 'libretranslate'
-export type OcrProviderId = 'xiaomi' | 'tesseract'
+export type TranslationProviderId = 'bing' | 'mymemory' | 'libretranslate'
+export type OcrProviderId = 'xiaomi' | 'xiaomi-local' | 'tesseract'
 
 export interface TranslationConfig {
   sourceLang: string
@@ -10,15 +10,17 @@ export interface TranslationConfig {
   libreTranslateUrl: string
   libreTranslateApiKey: string
   ocrProvider: OcrProviderId
+  localOcrUrl: string
 }
 
 export const DEFAULT_CONFIG: TranslationConfig = {
   sourceLang: 'en',
   targetLang: 'zh-CN',
-  provider: 'mymemory',
+  provider: 'bing',
   libreTranslateUrl: '',
   libreTranslateApiKey: '',
   ocrProvider: 'xiaomi',
+  localOcrUrl: 'http://127.0.0.1:8099',
 }
 
 const CONFIG_KEY = 'config'

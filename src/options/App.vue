@@ -30,10 +30,11 @@ const TARGET_LANGUAGES = [
 const config = reactive<TranslationConfig>({
   sourceLang: 'en',
   targetLang: 'zh-CN',
-  provider: 'mymemory',
+  provider: 'bing',
   libreTranslateUrl: '',
   libreTranslateApiKey: '',
   ocrProvider: 'xiaomi',
+  localOcrUrl: 'http://127.0.0.1:8099',
 })
 
 const saved = ref(false)
@@ -106,13 +107,20 @@ onMounted(load)
     <section class="card">
       <h2>翻译服务</h2>
       <label class="radio">
+        <input type="radio" value="bing" v-model="config.provider" />
+        <span>必应翻译（免费、无需密钥，国内可直连，推荐）</span>
+      </label>
+      <label class="radio">
         <input type="radio" value="mymemory" v-model="config.provider" />
-        <span>MyMemory（免费，默认）</span>
+        <span>MyMemory（免费，额度较小，每天约 1000 词）</span>
       </label>
       <label class="radio">
         <input type="radio" value="libretranslate" v-model="config.provider" />
         <span>LibreTranslate（支持自建服务）</span>
       </label>
+      <p class="hint">
+        必应与 MyMemory 会自动互相兜底，其中一个额度用尽时仍能翻译。
+      </p>
 
       <div v-if="config.provider === 'libretranslate'" class="indent">
         <label class="block">
@@ -137,6 +145,26 @@ onMounted(load)
 
     <section class="card">
       <h2>识别引擎</h2>
+      <label class="radio">
+        <input type="radio" value="xiaomi-local" v-model="config.ocrProvider" />
+        <span>小米 OCR 0（本地 llama.cpp 服务，离线、无额度限制，推荐）</span>
+      </label>
+      <div v-if="config.ocrProvider === 'xiaomi-local'" class="indent">
+        <label class="block">
+          <span>本地服务地址</span>
+          <input
+            v-model="config.localOcrUrl"
+            type="url"
+            placeholder="http://127.0.0.1:8099"
+          />
+        </label>
+        <p class="hint">
+          需先在本机启动 llama-server，例如：<code>llama-server -m Xiaomi-OCR-0.Q4_K_M.gguf --mmproj mmproj-f16.gguf --port 8099</code>
+        </p>
+        <p class="hint">
+          服务未启动时会直接报错，不会回退到其他引擎，便于排查。
+        </p>
+      </div>
       <label class="radio">
         <input type="radio" value="xiaomi" v-model="config.ocrProvider" />
         <span>小米 OCR 0（在线，识别更准，支持中英文与表格）</span>

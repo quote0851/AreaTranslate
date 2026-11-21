@@ -3,6 +3,7 @@
 
 import { recognize as recognizeLocal } from '../ocr/engine'
 import { recognizeWithXiaomi } from '../ocr/xiaomi'
+import { recognizeWithLocalOcr } from '../ocr/local'
 import type { OcrProviderId } from '../storage/config'
 import type { OcrResult, RuntimeMessage } from '../shared/messages'
 import type { ViewportRect, ViewportSize } from '../shared/geometry'
@@ -11,7 +12,13 @@ import { clamp } from '../shared/geometry'
 chrome.runtime.onMessage.addListener(
   (message: RuntimeMessage, _sender, sendResponse) => {
     if (message?.type === 'OCR_IMAGE') {
-      void runOcr(message.dataUrl, message.rect, message.viewport, message.ocrProvider)
+      void runOcr(
+        message.dataUrl,
+        message.rect,
+        message.viewport,
+        message.ocrProvider,
+        message.localOcrUrl,
+      )
         .then(sendResponse)
         .catch((err) => sendResponse({ ok: false, error: String(err) }))
       return true // 异步响应
@@ -25,6 +32,7 @@ async function runOcr(
   rect: ViewportRect,
   viewport: ViewportSize,
   ocrProvider: OcrProviderId,
+  localOcrUrl: string,
 ): Promise<OcrResult> {
   const img = await loadImage(dataUrl)
   try {
@@ -55,7 +63,11 @@ async function runOcr(
     const blob = await canvas.convertToBlob({ type: 'image/png' })
     const croppedDataUrl = await blobToDataUrl(blob)
 
-    const { text, confidence } = await runEngine(croppedDataUrl, ocrProvider)
+    const { text, confidence } = await runEngine(
+      croppedDataUrl,
+      ocrProvider,
+      localOcrUrl,
+    )
 
     return {
       ok: true,
@@ -70,11 +82,16 @@ async function runOcr(
   }
 }
 
-// 按设置选择识别引擎；在线引擎失败时自动回退到本地 Tesseract，避免无结果
+// 按设置选择识别引擎；在线引擎失败时自动回退到本地 Tesseract，避免无结果。
+// 本地小米服务是用户显式选择并自行启动的，失败时直接报错，便于排查。
 async function runEngine(
   dataUrl: string,
   ocrProvider: OcrProviderId,
+  localOcrUrl: string,
 ): Promise<{ text: string; confidence: number }> {
+  if (ocrProvider === 'xiaomi-local') {
+    return recognizeWithLocalOcr(dataUrl, localOcrUrl)
+  }
   if (ocrProvider === 'xiaomi') {
     try {
       return await recognizeWithXiaomi(dataUrl)

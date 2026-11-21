@@ -61,6 +61,7 @@ async function handleCaptureRegion(
     rect,
     viewport,
     ocrProvider: config.ocrProvider,
+    localOcrUrl: config.localOcrUrl,
   })) as OcrResult
 
   return result

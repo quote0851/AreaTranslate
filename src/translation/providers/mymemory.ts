@@ -33,6 +33,12 @@ export class MyMemoryProvider implements TranslationProvider {
     }
 
     if (body.responseStatus !== 200) {
+      if (body.responseStatus === 429) {
+        throw new TranslationError(
+          'QUOTA_EXCEEDED',
+          'MyMemory 免费额度已用尽（429）',
+        )
+      }
       throw new TranslationError('API_ERROR', `MyMemory 接口异常（${body.responseStatus}）`)
     }
 
