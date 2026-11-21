@@ -31,6 +31,18 @@ function startSelection(): void {
   overlay.start()
 }
 
+// Alt+Shift+T 被 Chrome 保留（工具栏快捷键），无法注册成 commands 快捷键，
+// 浏览器会把按键下发到页面，因此在这里监听，确保按下后直接进入框选。
+function handleShortcutKey(e: KeyboardEvent): void {
+  if (!e.altKey || !e.shiftKey || e.ctrlKey || e.metaKey) return
+  if (e.code !== 'KeyT') return
+  e.preventDefault()
+  e.stopPropagation()
+  startSelection()
+}
+
+window.addEventListener('keydown', handleShortcutKey, true)
+
 function handleCancel(): void {
   overlay?.destroy()
   overlay = null

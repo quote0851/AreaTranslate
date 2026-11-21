@@ -223,11 +223,11 @@ export class TranslationPanel {
           display: flex;
           flex-direction: column;
           background: #fff;
-          border: 1px solid #d0d7de;
-          border-radius: 8px;
-          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+          border: 1px solid #e2e8f0;
+          border-radius: 12px;
+          box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
           font: 13px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
-          color: #1f2328;
+          color: #0f172a;
           overflow: hidden;
         }
         .header {
@@ -235,7 +235,7 @@ export class TranslationPanel {
           align-items: center;
           justify-content: space-between;
           padding: 10px 12px;
-          border-bottom: 1px solid #eee;
+          border-bottom: 1px solid #e2e8f0;
           cursor: move;
           user-select: none;
           -webkit-user-select: none;
@@ -246,38 +246,38 @@ export class TranslationPanel {
         .title { font-weight: 600; font-size: 13px; }
         .close {
           border: none; background: none; cursor: pointer;
-          font-size: 18px; line-height: 1; color: #59636e; padding: 0 2px;
+          font-size: 18px; line-height: 1; color: #64748b; padding: 0 2px;
         }
-        .close:hover { color: #1f2328; }
+        .close:hover { color: #0f172a; }
         .body {
           padding: 10px 12px; max-height: 380px; overflow-y: auto;
           flex: 1 1 auto; min-height: 0;
         }
         .label {
-          font-size: 11px; color: #59636e; margin: 10px 0 4px;
+          font-size: 11px; color: #64748b; margin: 10px 0 4px;
           text-transform: uppercase; letter-spacing: .04em;
         }
         .label:first-child { margin-top: 0; }
         .text { white-space: pre-wrap; word-break: break-word; }
-        .text.source { color: #1f2328; }
-        .text.target { color: #0969da; }
-        .status { padding: 6px 12px; font-size: 12px; color: #59636e; flex-shrink: 0; }
-        .status.error { color: #cf222e; }
-        .status.warning { color: #9a6700; }
+        .text.source { color: #0f172a; }
+        .text.target { color: #2563eb; }
+        .status { padding: 6px 12px; font-size: 12px; color: #64748b; flex-shrink: 0; }
+        .status.error { color: #dc2626; }
+        .status.warning { color: #d97706; }
         .actions {
-          display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid #eee;
+          display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid #e2e8f0;
           flex-shrink: 0;
         }
         .btn {
-          flex: 1; padding: 6px 10px; border: 1px solid #d0d7de; border-radius: 6px;
-          background: #f6f8fa; cursor: pointer; font-size: 12px; color: #1f2328;
+          flex: 1; padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 8px;
+          background: #f8fafc; cursor: pointer; font-size: 12px; color: #0f172a;
         }
         .btn:disabled { opacity: .5; cursor: not-allowed; }
-        .btn:hover:not(:disabled) { background: #eef1f4; }
+        .btn:hover:not(:disabled) { background: #e2e8f0; }
         .btn[hidden] { display: none; }
         .ai-section {
           margin-top: 12px; padding-top: 10px;
-          border-top: 1px dashed #d8dee4;
+          border-top: 1px dashed #e2e8f0;
         }
         .ai-section[hidden] { display: none; }
         .ai-head {
@@ -285,11 +285,11 @@ export class TranslationPanel {
           gap: 8px;
         }
         .ai-head .label { margin: 0; }
-        .ai-source { font-size: 11px; color: #59636e; }
+        .ai-source { font-size: 11px; color: #64748b; }
         .text.ai-result { margin-top: 4px; color: #8250df; }
-        .ai-status { margin-top: 6px; font-size: 12px; color: #59636e; }
-        .ai-status.error { color: #cf222e; }
-        .ai-status.warning { color: #9a6700; }
+        .ai-status { margin-top: 6px; font-size: 12px; color: #64748b; }
+        .ai-status.error { color: #dc2626; }
+        .ai-status.warning { color: #d97706; }
         .ai-actions { display: flex; gap: 8px; margin-top: 8px; }
         .ai-actions .btn { padding: 5px 6px; }
       </style>
