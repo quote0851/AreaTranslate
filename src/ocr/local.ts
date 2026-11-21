@@ -48,7 +48,7 @@ export async function recognizeWithLocalOcr(
         body: JSON.stringify(body),
         signal: controller.signal,
       })
-    } catch (err) {
+    } catch {
       if (controller.signal.aborted) {
         throw new Error('本地 OCR 识别超时，请重试')
       }

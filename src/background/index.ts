@@ -2,12 +2,14 @@
 // 职责：响应快捷键与按钮事件；调用 captureVisibleTab；管理 offscreen 文档并路由裁剪请求。
 
 import type {
+  AiPortMessage,
   OcrResult,
   RuntimeMessage,
   TranslateResult,
 } from '../shared/messages'
 import type { ViewportRect, ViewportSize } from '../shared/geometry'
 import { translate } from '../translation/manager'
+import { translateWithAi } from '../translation/ai'
 import { getConfig } from '../storage/config'
 import { TranslationError } from '../translation/types'
 import { startSelectionOnTab } from '../shared/startSelection'
@@ -93,6 +95,92 @@ async function startSelectionOnActiveTab(): Promise<void> {
     console.warn('[AreaTranslate] 无法启动框选：', err)
   }
 }
+
+const AI_PORT_NAME = 'ai-translate'
+
+async function handleAiTranslate(
+  port: chrome.runtime.Port,
+  message: Extract<AiPortMessage, { type: 'START' }>,
+  signal: AbortSignal,
+): Promise<void> {
+  try {
+    const config = await getConfig()
+    if (!config.aiEnabled) {
+      throw new TranslationError('API_ERROR', '请先在设置中启用 AI 翻译')
+    }
+    const translation = await translateWithAi(
+      {
+        text: message.text,
+        sourceLang: config.sourceLang,
+        targetLang: config.targetLang,
+        context: message.context,
+      },
+      config,
+      {
+        signal,
+        onDelta: (text) => {
+          postToPort(port, {
+            type: 'DELTA',
+            requestId: message.requestId,
+            text,
+          })
+        },
+      },
+    )
+    postToPort(port, {
+      type: 'DONE',
+      requestId: message.requestId,
+      translation,
+    })
+  } catch (err) {
+    // 用户主动取消/关闭浮层时不回报错误
+    if (signal.aborted) return
+    const error =
+      err instanceof TranslationError
+        ? err
+        : new TranslationError('API_ERROR', String(err))
+    postToPort(port, {
+      type: 'ERROR',
+      requestId: message.requestId,
+      error: error.message,
+      errorCode: error.code,
+    })
+  }
+}
+
+function postToPort(port: chrome.runtime.Port, message: AiPortMessage): void {
+  try {
+    port.postMessage(message)
+  } catch {
+    // 端口已关闭，忽略
+  }
+}
+
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== AI_PORT_NAME) return
+
+  let controller: AbortController | null = null
+  let activeRequestId = ''
+
+  port.onMessage.addListener((message: AiPortMessage) => {
+    if (message.type === 'START') {
+      controller?.abort()
+      activeRequestId = message.requestId
+      const nextController = new AbortController()
+      controller = nextController
+      void handleAiTranslate(port, message, nextController.signal)
+      return
+    }
+    if (message.type === 'ABORT' && message.requestId === activeRequestId) {
+      controller?.abort()
+    }
+  })
+
+  port.onDisconnect.addListener(() => {
+    controller?.abort()
+    controller = null
+  })
+})
 
 chrome.runtime.onInstalled.addListener(() => {
   console.info('[AreaTranslate] installed')

@@ -2,16 +2,25 @@
 
 import { SelectionOverlay } from './selection/overlay'
 import { TranslationPanel } from './translation/panel'
+import { collectSelectionContext } from './context/collect'
 import type {
+  AiPortMessage,
   OcrResult,
   RuntimeMessage,
   TranslateResult,
 } from '../shared/messages'
+import type { SelectionContext } from '../translation/types'
 import type { ViewportRect } from '../shared/geometry'
+import { DEFAULT_CONFIG, getConfig, type TranslationConfig } from '../storage/config'
 
 let overlay: SelectionOverlay | null = null
 let panel: TranslationPanel | null = null
 let lastOcrText = ''
+let lastOcrConfidence = 0
+let lastRect: ViewportRect | null = null
+let lastConfig: TranslationConfig = DEFAULT_CONFIG
+let aiPort: chrome.runtime.Port | null = null
+let aiRequestId = ''
 
 function startSelection(): void {
   if (overlay) return
@@ -33,6 +42,12 @@ const TRANSLATE_TIMEOUT = 30_000
 async function handleComplete(rect: ViewportRect): Promise<void> {
   if (!overlay) return
   const viewport = { width: window.innerWidth, height: window.innerHeight }
+  const configPromise = getConfig().catch(() => DEFAULT_CONFIG)
+
+  abortAiTranslation()
+  lastOcrText = ''
+  lastOcrConfidence = 0
+  lastRect = null
 
   // 鼠标松开后立即显示浮层并进入「识别中」状态（浮层定位在框选区域外，不影响截图/OCR）
   const resultPanel = ensurePanel()
@@ -55,7 +70,11 @@ async function handleComplete(rect: ViewportRect): Promise<void> {
 
     if (response?.ok) {
       lastOcrText = response.text ?? ''
-      resultPanel.show(rect, response)
+      lastOcrConfidence = response.confidence ?? 0
+      lastRect = rect
+      const config = await configPromise
+      lastConfig = config
+      resultPanel.show(rect, response, config.aiEnabled)
       if (lastOcrText) {
         await requestTranslation(lastOcrText)
       }
@@ -72,18 +91,151 @@ async function handleComplete(rect: ViewportRect): Promise<void> {
   }
 }
 
+function buildSelectionContext(
+  rect: ViewportRect,
+  text: string,
+  confidence: number,
+  config: TranslationConfig,
+): SelectionContext | null {
+  if (!text) return null
+  try {
+    return collectSelectionContext({
+      rect,
+      ocrText: text,
+      ocrConfidence: confidence,
+      maxContextChars: config.aiMaxContextChars,
+      contextEnabled: config.aiContextEnabled,
+    })
+  } catch (err) {
+    console.warn('[AreaTranslate] 上下文采集失败：', err)
+    return {
+      source: 'ocr',
+      sourceText: text,
+      pageTitle: document.title,
+      pageUrl:
+        location.protocol === 'http:' || location.protocol === 'https:'
+          ? `${location.origin}${location.pathname}`
+          : '',
+      nearbyText: '',
+      pageText: '',
+      ocrConfidence: confidence,
+    }
+  }
+}
+
 function ensurePanel(): TranslationPanel {
   if (!panel) {
     panel = new TranslationPanel({
       onClose: () => {
+        abortAiTranslation()
         panel = null
       },
       onRetranslate: () => {
         if (lastOcrText) void requestTranslation(lastOcrText)
       },
+      onAiTranslate: () => requestAiTranslation(),
+      onAiAbort: () => {
+        abortAiTranslation()
+        panel?.setAiStopped()
+      },
     })
   }
   return panel
+}
+
+function requestAiTranslation(): void {
+  const rect = lastRect
+  if (!rect || !lastOcrText.trim()) {
+    panel?.setAiError('没有可翻译的原文')
+    return
+  }
+
+  // 只在用户真正点击 AI 翻译时采集上下文，避免不必要的页面读取
+  const context = buildSelectionContext(
+    rect,
+    lastOcrText,
+    lastOcrConfidence,
+    lastConfig,
+  )
+  if (!context || !context.sourceText.trim()) {
+    panel?.setAiError('没有可翻译的原文')
+    return
+  }
+
+  abortAiTranslation()
+  const requestId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  aiRequestId = requestId
+  const sourceLabel = context.source === 'dom' ? '页面文本' : 'OCR 文本'
+  panel?.setAiLoading(sourceLabel)
+
+  const port = chrome.runtime.connect({ name: 'ai-translate' })
+  aiPort = port
+
+  port.onMessage.addListener((message: AiPortMessage) => {
+    if (message.requestId !== aiRequestId) return
+    if (message.type === 'DELTA') {
+      panel?.setAiStreaming(message.text)
+      return
+    }
+    if (message.type === 'DONE') {
+      panel?.setAiTranslation(message.translation)
+      closeAiPort()
+      return
+    }
+    if (message.type === 'ERROR') {
+      panel?.setAiError(message.error || 'AI 翻译失败')
+      closeAiPort()
+    }
+  })
+
+  port.onDisconnect.addListener(() => {
+    if (aiPort !== port) return
+    aiPort = null
+    if (aiRequestId === requestId) {
+      aiRequestId = ''
+      panel?.setAiError('AI 翻译连接已断开，请重试')
+    }
+  })
+
+  const startMessage: AiPortMessage = {
+    type: 'START',
+    requestId,
+    text: context.sourceText,
+    context,
+  }
+  port.postMessage(startMessage)
+}
+
+function abortAiTranslation(): void {
+  const port = aiPort
+  if (!port) return
+  try {
+    const abortMessage: AiPortMessage = {
+      type: 'ABORT',
+      requestId: aiRequestId,
+    }
+    port.postMessage(abortMessage)
+  } catch {
+    // 端口可能已断开
+  }
+  try {
+    port.disconnect()
+  } catch {
+    // 忽略重复断开
+  }
+  aiPort = null
+  aiRequestId = ''
+}
+
+function closeAiPort(): void {
+  const port = aiPort
+  aiPort = null
+  aiRequestId = ''
+  try {
+    port?.disconnect()
+  } catch {
+    // 忽略重复断开
+  }
 }
 
 async function requestTranslation(text: string): Promise<void> {

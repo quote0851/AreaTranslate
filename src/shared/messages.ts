@@ -2,6 +2,7 @@
 
 import type { ViewportRect, ViewportSize } from './geometry'
 import type { OcrProviderId } from '../storage/config'
+import type { SelectionContext } from '../translation/types'
 
 export type RuntimeMessage =
   | { type: 'START_SELECTION' }
@@ -35,3 +36,21 @@ export interface TranslateResult {
   error?: string
   errorCode?: string
 }
+
+// AI 翻译端口消息：content/options 与 background 之间的流式协议
+export type AiPortMessage =
+  | {
+      type: 'START'
+      requestId: string
+      text: string
+      context: SelectionContext | null
+    }
+  | { type: 'ABORT'; requestId: string }
+  | { type: 'DELTA'; requestId: string; text: string }
+  | { type: 'DONE'; requestId: string; translation: string }
+  | {
+      type: 'ERROR'
+      requestId: string
+      error: string
+      errorCode?: string
+    }

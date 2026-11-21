@@ -2,6 +2,7 @@
 
 export type TranslationProviderId = 'bing' | 'mymemory' | 'libretranslate'
 export type OcrProviderId = 'xiaomi' | 'xiaomi-local' | 'tesseract'
+export type AiProviderPreset = 'deepseek' | 'local' | 'custom'
 
 export interface TranslationConfig {
   sourceLang: string
@@ -11,6 +12,13 @@ export interface TranslationConfig {
   libreTranslateApiKey: string
   ocrProvider: OcrProviderId
   localOcrUrl: string
+  aiEnabled: boolean
+  aiPreset: AiProviderPreset
+  aiBaseUrl: string
+  aiModel: string
+  aiApiKey: string
+  aiContextEnabled: boolean
+  aiMaxContextChars: number
 }
 
 export const DEFAULT_CONFIG: TranslationConfig = {
@@ -21,6 +29,27 @@ export const DEFAULT_CONFIG: TranslationConfig = {
   libreTranslateApiKey: '',
   ocrProvider: 'xiaomi',
   localOcrUrl: 'http://127.0.0.1:8099',
+  aiEnabled: false,
+  aiPreset: 'deepseek',
+  aiBaseUrl: 'https://api.deepseek.com',
+  aiModel: 'deepseek-chat',
+  aiApiKey: '',
+  aiContextEnabled: true,
+  aiMaxContextChars: 3000,
+}
+
+export const AI_PRESETS: Record<
+  Exclude<AiProviderPreset, 'custom'>,
+  { baseUrl: string; model: string }
+> = {
+  deepseek: {
+    baseUrl: 'https://api.deepseek.com',
+    model: 'deepseek-chat',
+  },
+  local: {
+    baseUrl: 'http://127.0.0.1:8080/v1',
+    model: 'local-model',
+  },
 }
 
 const CONFIG_KEY = 'config'

@@ -29,8 +29,13 @@
     "https://api.mymemory.translated.net/*",
     "https://cn.bing.com/*",
     "https://loongwayx-xiaomi-ocr-0-demo.hf.space/*",
+    "https://api.deepseek.com/*",
     "http://127.0.0.1/*",
     "http://localhost/*"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://*/*"
   ],
   "commands": {
     "start-selection": {

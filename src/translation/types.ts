@@ -27,3 +27,18 @@ export interface TranslationProvider {
   readonly id: string
   translate(request: TranslationRequest): Promise<string>
 }
+
+// 选区上下文：DOM 文本优先，OCR 兜底
+export interface SelectionContext {
+  source: 'dom' | 'ocr'
+  sourceText: string
+  pageTitle: string
+  pageUrl: string
+  nearbyText: string
+  pageText: string
+  ocrConfidence: number
+}
+
+export interface AiTranslationRequest extends TranslationRequest {
+  context: SelectionContext | null
+}

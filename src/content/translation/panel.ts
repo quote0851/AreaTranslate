@@ -1,4 +1,5 @@
 // 翻译结果浮层：Shadow DOM 隔离样式，展示原文/译文，支持复制、重译、关闭。
+// 直译结果下方提供可选的 AI 翻译区块（手动触发、流式展示）。
 
 import { createShadowHost } from './shadow'
 import type { OcrResult } from '../../shared/messages'
@@ -10,6 +11,8 @@ const LOW_CONFIDENCE = 60
 interface TranslationPanelOptions {
   onClose: () => void
   onRetranslate: () => void
+  onAiTranslate: () => void
+  onAiAbort: () => void
 }
 
 export class TranslationPanel {
@@ -21,8 +24,18 @@ export class TranslationPanel {
   private copyBtn: HTMLButtonElement | null = null
   private retranslateBtn: HTMLButtonElement | null = null
 
+  private aiSection: HTMLDivElement | null = null
+  private aiSourceEl: HTMLSpanElement | null = null
+  private aiResultEl: HTMLDivElement | null = null
+  private aiStatusEl: HTMLDivElement | null = null
+  private aiBtn: HTMLButtonElement | null = null
+  private aiCopyBtn: HTMLButtonElement | null = null
+  private aiStopBtn: HTMLButtonElement | null = null
+
   private currentText = ''
   private currentTranslation = ''
+  private currentAiTranslation = ''
+  private aiEnabled = false
   private loadingTimer: number | null = null
   private dragOffsetX = 0
   private dragOffsetY = 0
@@ -32,7 +45,7 @@ export class TranslationPanel {
 
   constructor(private readonly opts: TranslationPanelOptions) {}
 
-  show(rect: ViewportRect, ocr: OcrResult): void {
+  show(rect: ViewportRect, ocr: OcrResult, aiEnabled = false): void {
     this.stopLoadingTicker()
     if (!this.host) this.render()
 
@@ -41,6 +54,7 @@ export class TranslationPanel {
     if (this.sourceEl) this.sourceEl.textContent = this.currentText
     if (this.targetEl) this.targetEl.textContent = ''
     this.setCopyEnabled(false)
+    this.applyAiAvailability(aiEnabled)
 
     if (!this.currentText) {
       this.setStatus('未识别到文本', 'warning')
@@ -65,6 +79,7 @@ export class TranslationPanel {
     if (this.sourceEl) this.sourceEl.textContent = ''
     if (this.targetEl) this.targetEl.textContent = ''
     this.setCopyEnabled(false)
+    this.applyAiAvailability(false)
     this.position(rect)
 
     // 计时显示，让用户明确看到仍在处理中
@@ -101,6 +116,48 @@ export class TranslationPanel {
     this.setCopyEnabled(false)
   }
 
+  setAiLoading(sourceLabel: string): void {
+    this.currentAiTranslation = ''
+    if (this.aiResultEl) this.aiResultEl.textContent = ''
+    this.setAiSource(sourceLabel)
+    this.setAiStatus('AI 正在翻译…', 'info')
+    if (this.aiBtn) this.aiBtn.disabled = true
+    if (this.aiCopyBtn) this.aiCopyBtn.disabled = true
+    if (this.aiStopBtn) this.aiStopBtn.hidden = false
+  }
+
+  setAiStreaming(text: string): void {
+    this.currentAiTranslation = text
+    if (this.aiResultEl) this.aiResultEl.textContent = text
+    this.setAiStatus('AI 正在翻译…', 'info')
+  }
+
+  setAiTranslation(text: string): void {
+    this.currentAiTranslation = text
+    if (this.aiResultEl) this.aiResultEl.textContent = text
+    if (this.aiBtn) this.aiBtn.disabled = false
+    if (this.aiStopBtn) this.aiStopBtn.hidden = true
+    if (this.aiCopyBtn) this.aiCopyBtn.disabled = !text
+    this.setAiStatus(
+      text ? 'AI 翻译完成（结合页面上下文）' : 'AI 未返回译文',
+      text ? 'info' : 'warning',
+    )
+  }
+
+  setAiError(message: string): void {
+    if (this.aiBtn) this.aiBtn.disabled = false
+    if (this.aiStopBtn) this.aiStopBtn.hidden = true
+    if (this.aiCopyBtn) this.aiCopyBtn.disabled = !this.currentAiTranslation
+    this.setAiStatus(message, 'error')
+  }
+
+  setAiStopped(): void {
+    if (this.aiBtn) this.aiBtn.disabled = false
+    if (this.aiStopBtn) this.aiStopBtn.hidden = true
+    if (this.aiCopyBtn) this.aiCopyBtn.disabled = !this.currentAiTranslation
+    this.setAiStatus('AI 翻译已取消', 'warning')
+  }
+
   close(): void {
     this.stopLoadingTicker()
     this.handleDragEnd()
@@ -112,7 +169,46 @@ export class TranslationPanel {
     this.statusEl = null
     this.copyBtn = null
     this.retranslateBtn = null
+    this.aiSection = null
+    this.aiSourceEl = null
+    this.aiResultEl = null
+    this.aiStatusEl = null
+    this.aiBtn = null
+    this.aiCopyBtn = null
+    this.aiStopBtn = null
+    this.currentAiTranslation = ''
     this.opts.onClose()
+  }
+
+  private applyAiAvailability(enabled: boolean): void {
+    this.aiEnabled = enabled
+    if (this.aiSection) this.aiSection.hidden = !enabled
+    this.resetAi()
+  }
+
+  private resetAi(): void {
+    this.currentAiTranslation = ''
+    if (this.aiResultEl) this.aiResultEl.textContent = ''
+    if (this.aiSourceEl) this.aiSourceEl.textContent = ''
+    if (this.aiBtn) this.aiBtn.disabled = false
+    if (this.aiCopyBtn) this.aiCopyBtn.disabled = true
+    if (this.aiStopBtn) this.aiStopBtn.hidden = true
+    this.setAiStatus(
+      this.aiEnabled ? '结合页面上下文，提升短文本准确度' : '',
+      'info',
+    )
+  }
+
+  private setAiSource(label: string): void {
+    if (this.aiSourceEl) {
+      this.aiSourceEl.textContent = label ? `原文取自${label}` : ''
+    }
+  }
+
+  private setAiStatus(text: string, kind: 'info' | 'error' | 'warning'): void {
+    if (!this.aiStatusEl) return
+    this.aiStatusEl.textContent = text
+    this.aiStatusEl.className = `ai-status ${kind}`
   }
 
   private render(): void {
@@ -123,6 +219,9 @@ export class TranslationPanel {
         .panel {
           width: 340px;
           max-width: calc(100vw - 16px);
+          max-height: calc(100vh - 16px);
+          display: flex;
+          flex-direction: column;
           background: #fff;
           border: 1px solid #d0d7de;
           border-radius: 8px;
@@ -141,6 +240,7 @@ export class TranslationPanel {
           user-select: none;
           -webkit-user-select: none;
           touch-action: none;
+          flex-shrink: 0;
         }
         .panel.dragging { opacity: .92; }
         .title { font-weight: 600; font-size: 13px; }
@@ -149,7 +249,10 @@ export class TranslationPanel {
           font-size: 18px; line-height: 1; color: #59636e; padding: 0 2px;
         }
         .close:hover { color: #1f2328; }
-        .body { padding: 10px 12px; max-height: 320px; overflow-y: auto; }
+        .body {
+          padding: 10px 12px; max-height: 380px; overflow-y: auto;
+          flex: 1 1 auto; min-height: 0;
+        }
         .label {
           font-size: 11px; color: #59636e; margin: 10px 0 4px;
           text-transform: uppercase; letter-spacing: .04em;
@@ -158,11 +261,12 @@ export class TranslationPanel {
         .text { white-space: pre-wrap; word-break: break-word; }
         .text.source { color: #1f2328; }
         .text.target { color: #0969da; }
-        .status { padding: 6px 12px; font-size: 12px; color: #59636e; }
+        .status { padding: 6px 12px; font-size: 12px; color: #59636e; flex-shrink: 0; }
         .status.error { color: #cf222e; }
         .status.warning { color: #9a6700; }
         .actions {
           display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid #eee;
+          flex-shrink: 0;
         }
         .btn {
           flex: 1; padding: 6px 10px; border: 1px solid #d0d7de; border-radius: 6px;
@@ -170,6 +274,24 @@ export class TranslationPanel {
         }
         .btn:disabled { opacity: .5; cursor: not-allowed; }
         .btn:hover:not(:disabled) { background: #eef1f4; }
+        .btn[hidden] { display: none; }
+        .ai-section {
+          margin-top: 12px; padding-top: 10px;
+          border-top: 1px dashed #d8dee4;
+        }
+        .ai-section[hidden] { display: none; }
+        .ai-head {
+          display: flex; align-items: center; justify-content: space-between;
+          gap: 8px;
+        }
+        .ai-head .label { margin: 0; }
+        .ai-source { font-size: 11px; color: #59636e; }
+        .text.ai-result { margin-top: 4px; color: #8250df; }
+        .ai-status { margin-top: 6px; font-size: 12px; color: #59636e; }
+        .ai-status.error { color: #cf222e; }
+        .ai-status.warning { color: #9a6700; }
+        .ai-actions { display: flex; gap: 8px; margin-top: 8px; }
+        .ai-actions .btn { padding: 5px 6px; }
       </style>
       <div class="panel">
         <div class="header">
@@ -181,6 +303,19 @@ export class TranslationPanel {
           <div class="text source"></div>
           <div class="label">译文</div>
           <div class="text target"></div>
+          <div class="ai-section" hidden>
+            <div class="ai-head">
+              <span class="label">AI 翻译</span>
+              <span class="ai-source"></span>
+            </div>
+            <div class="text ai-result"></div>
+            <div class="ai-status"></div>
+            <div class="ai-actions">
+              <button class="btn" data-action="ai">AI 翻译</button>
+              <button class="btn" data-action="ai-copy" disabled>复制</button>
+              <button class="btn" data-action="ai-stop" hidden>停止</button>
+            </div>
+          </div>
         </div>
         <div class="status"></div>
         <div class="actions">
@@ -197,6 +332,13 @@ export class TranslationPanel {
     this.statusEl = shadow.querySelector('.status')
     this.copyBtn = shadow.querySelector('[data-action="copy"]')
     this.retranslateBtn = shadow.querySelector('[data-action="retranslate"]')
+    this.aiSection = shadow.querySelector('.ai-section')
+    this.aiSourceEl = shadow.querySelector('.ai-source')
+    this.aiResultEl = shadow.querySelector('.text.ai-result')
+    this.aiStatusEl = shadow.querySelector('.ai-status')
+    this.aiBtn = shadow.querySelector('[data-action="ai"]')
+    this.aiCopyBtn = shadow.querySelector('[data-action="ai-copy"]')
+    this.aiStopBtn = shadow.querySelector('[data-action="ai-stop"]')
 
     shadow.querySelector('[data-action="close"]')?.addEventListener('click', () => this.close())
     shadow.querySelector('.header')?.addEventListener('pointerdown', (e) =>
@@ -204,6 +346,9 @@ export class TranslationPanel {
     )
     this.copyBtn?.addEventListener('click', () => void this.copyTranslation())
     this.retranslateBtn?.addEventListener('click', () => this.opts.onRetranslate())
+    this.aiBtn?.addEventListener('click', () => this.opts.onAiTranslate())
+    this.aiCopyBtn?.addEventListener('click', () => void this.copyAiTranslation())
+    this.aiStopBtn?.addEventListener('click', () => this.opts.onAiAbort())
 
     document.documentElement.appendChild(host)
   }
@@ -259,6 +404,12 @@ export class TranslationPanel {
     if (!this.currentTranslation) return
     const ok = await copyToClipboard(this.currentTranslation)
     this.setStatus(ok ? '已复制到剪贴板' : '复制失败，请手动复制', ok ? 'info' : 'error')
+  }
+
+  private async copyAiTranslation(): Promise<void> {
+    if (!this.currentAiTranslation) return
+    const ok = await copyToClipboard(this.currentAiTranslation)
+    this.setAiStatus(ok ? '已复制 AI 译文' : '复制失败，请手动复制', ok ? 'info' : 'error')
   }
 
   private position(rect: ViewportRect): void {
